@@ -21,11 +21,32 @@ This Python application converts image-based PDFs into searchable text PDFs usin
 
 ## Installation
 
+### Automatic Setup (Windows)
+
 1. Clone or download this repository
-2. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
+2. Run `install.bat` to set up the virtual environment:
+   ```bash
+   install.bat
+   ```
+   This script will:
+   - Create a Python virtual environment
+   - Install all required dependencies
+   - Run the setup configuration through `setup.bat`
+
+### Manual Setup
+
+If you prefer manual installation:
+1. Clone or download this repository
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate  # On Windows
+   source venv/bin/activate  # On Linux/Mac
+   ```
+3. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
@@ -90,6 +111,7 @@ Common errors and solutions:
 2. **Permission denied**: Check file permissions
 3. **Out of memory**: Reduce DPI or process fewer pages simultaneously
 4. **Unsupported file format**: Ensure input is a valid PDF file
+5. **Virtual environment issues**: If you encounter any issues with the virtual environment, try removing the `venv` folder and running `install.bat` again
 
 ## Notes
 
