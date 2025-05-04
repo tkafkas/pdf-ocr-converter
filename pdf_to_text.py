@@ -1,60 +1,97 @@
 import os
-from pdf2image import convert_from_path
+import sys
+import json
+from pathlib import Path
 import pytesseract
-from PIL import Image
-from PyPDF2 import PdfWriter, PdfReader
-import io
-import argparse
+from pdf2image import convert_from_path
 
-def convert_pdf_to_searchable(input_pdf_path, output_pdf_path):
-    print(f"Converting {input_pdf_path} to searchable PDF...")
-    
-    # Convert PDF pages to images
-    print("Converting PDF to images...")
-    images = convert_from_path(input_pdf_path)
-    
-    # Create a PDF writer object
-    pdf_writer = PdfWriter()
-    
-    # Process each page
-    for i, image in enumerate(images, start=1):
-        print(f"Processing page {i}/{len(images)}...")
+def load_config():
+    """Load configuration from config.json."""
+    try:
+        script_dir = Path(__file__).parent.absolute()
+        config_path = script_dir / 'config.json'
+        print(f"Loading config from: {config_path}")
         
-        # Perform OCR on the image
-        text = pytesseract.image_to_pdf_or_hocr(image, extension='pdf')
+        if not config_path.exists():
+            print(f"Error: Config file not found at {config_path}")
+            sys.exit(1)
+            
+        with open(config_path) as f:
+            config = json.load(f)
+            
+        # Verify Poppler path exists and contains pdftoppm.exe
+        poppler_path = Path(config['poppler_path'])
+        pdftoppm_path = poppler_path / 'pdftoppm.exe'
         
-        # Convert bytes to PDF page
-        pdf = PdfReader(io.BytesIO(text))
-        page = pdf.pages[0]
+        if not pdftoppm_path.exists():
+            print(f"Error: pdftoppm.exe not found at: {pdftoppm_path}")
+            print("Please run setup.bat as administrator to install Poppler")
+            sys.exit(1)
+            
+        print(f"Found pdftoppm at: {pdftoppm_path}")
+        return config
         
-        # Add the searchable page to output PDF
-        pdf_writer.add_page(page)
-    
-    # Save the searchable PDF
-    print(f"Saving searchable PDF to {output_pdf_path}...")
-    with open(output_pdf_path, 'wb') as output_file:
-        pdf_writer.write(output_file)
-    
-    print("Conversion complete!")
+    except Exception as e:
+        print(f"Error loading config: {str(e)}")
+        sys.exit(1)
 
-def main():
-    parser = argparse.ArgumentParser(description='Convert image-based PDF to searchable PDF')
-    parser.add_argument('input_pdf', help='Path to input PDF file')
-    parser.add_argument('--output', help='Path to output PDF file (optional)', default=None)
-    args = parser.parse_args()
-    
-    input_pdf = args.input_pdf
-    if not os.path.exists(input_pdf):
-        print(f"Error: Input file '{input_pdf}' does not exist")
-        return
-    
-    # Generate output path if not provided
-    output_pdf = args.output
-    if output_pdf is None:
-        base_name = os.path.splitext(input_pdf)[0]
-        output_pdf = f"{base_name}_searchable.pdf"
-    
-    convert_pdf_to_searchable(input_pdf, output_pdf)
+def convert_pdf_to_text(pdf_path):
+    """Convert PDF to text using OCR."""
+    try:
+        # Load configuration
+        config = load_config()
+        poppler_path = config['poppler_path']
+
+        # Convert path to absolute
+        pdf_path = Path(pdf_path).absolute()
+        
+        # Check if the PDF file exists
+        if not pdf_path.exists():
+            print(f"Error: PDF file not found: {pdf_path}")
+            sys.exit(1)
+
+        print(f"\nConverting: {pdf_path}")
+        print("This may take a few minutes depending on the PDF size...")
+        print(f"Using Poppler from: {poppler_path}")
+
+        # Create output directory next to the PDF
+        output_dir = pdf_path.parent / 'output'
+        output_dir.mkdir(exist_ok=True)
+        output_file = output_dir / f"{pdf_path.stem}_text.txt"
+        
+        print(f"Output will be saved to: {output_file}")
+
+        # Convert PDF to images
+        try:
+            images = convert_from_path(
+                str(pdf_path),
+                poppler_path=poppler_path
+            )
+        except Exception as e:
+            print(f"\nError: Failed to convert PDF to images: {str(e)}")
+            print("Please make sure Poppler is installed correctly")
+            sys.exit(1)
+
+        # Process each page
+        print(f"\nProcessing {len(images)} pages...")
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            for i, image in enumerate(images, 1):
+                print(f"Processing page {i}/{len(images)}...")
+                text = pytesseract.image_to_string(image)
+                f.write(f"\n--- Page {i} ---\n\n")
+                f.write(text)
+                f.write("\n")
+
+        print(f"\nDone! Text saved to: {output_file}")
+
+    except Exception as e:
+        print(f"\nError converting PDF: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2:
+        print("Usage: python pdf_to_text.py <pdf_file>")
+        sys.exit(1)
+
+    convert_pdf_to_text(sys.argv[1])
