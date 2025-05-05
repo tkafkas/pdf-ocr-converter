@@ -182,14 +182,22 @@ echo Location: %FOUND_TESSERACT%
 
 :: Use PowerShell to safely set PATH
 powershell -Command "& {
-    $tesseractPath = '%FOUND_TESSERACT%'
+    $tesseractPath = \"%FOUND_TESSERACT%\"
     $tessdataPath = Join-Path $tesseractPath 'tessdata'
     $currentPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
     
     # Remove any existing Tesseract paths to avoid duplicates
     $paths = $currentPath -split ';' | Where-Object { -not $_.Contains('Tesseract-OCR') }
-    $newPath = ($paths + $tesseractPath + $tessdataPath) -join ';'
     
+    # Filter out empty paths and ensure paths are unique
+    $paths = @($paths | Where-Object { $_ -ne '' } | Select-Object -Unique)
+    
+    # Add new paths
+    $paths += $tesseractPath
+    $paths += $tessdataPath
+    
+    # Join paths and set environment variable
+    $newPath = $paths -join ';'
     [Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine')
 }"
 
